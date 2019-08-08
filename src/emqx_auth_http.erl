@@ -62,6 +62,7 @@ description() -> "Authentication by HTTP API".
 %%--------------------------------------------------------------------
 
 authenticate(#http_request{method = Method, url = Url, params = Params}, Credentials, HttpOpts, RetryOpts) ->
+   ?LOG(error, "[Auth PARAM] url ~s param: ~p credentials:~p feed:~p", [Url, Params,Credentials,feedvar(Params, Credentials)]),
    request(Method, Url, feedvar(Params, Credentials), HttpOpts, RetryOpts).
 
 -spec(is_superuser(undefined | #http_request{}, emqx_types:credetials(), list(), list()) -> boolean()).
