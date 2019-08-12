@@ -34,15 +34,21 @@ start(_StartType, _StartArgs) ->
     with_env(auth_req, fun load_auth_hook/1),
     with_env(acl_req,  fun load_acl_hook/1),
     emqx_auth_http_cfg:register(),
+	init_ets(),
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+init_ets()->
+	ets:new(blacklist,[set,public,named_table]).
 
 load_auth_hook(AuthReq) ->
     emqx_auth_http:register_metrics(),
     SuperReq = r(application:get_env(?APP, super_req, undefined)),
+	ConfigReq = r(application:get_env(?APP, config_req, undefined)),
     HttpOpts = application:get_env(?APP, http_opts, []),
     RetryOpts = application:get_env(?APP, retry_opts, []),
     Params = #{auth_req => AuthReq,
                super_req => SuperReq,
+			   config_req => ConfigReq,
                http_opts => HttpOpts,
                retry_opts => maps:from_list(RetryOpts)},
     emqx:hook('client.authenticate', fun emqx_auth_http:check/2, [Params]).
@@ -84,5 +90,7 @@ r(Config) ->
     Method = proplists:get_value(method, Config, post),
     Url    = proplists:get_value(url, Config),
     Params = proplists:get_value(params, Config),
-    #http_request{method = Method, url = Url, params = Params}.
+	CacheTime = proplists:get_value(cache_time, Config),
+	Enable = proplists:get_value(enable, Config),
+    #http_request{method = Method, url = Url, params = Params, cache_time=CacheTime, enable=Enable}.
 

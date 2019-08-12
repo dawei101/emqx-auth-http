@@ -34,10 +34,10 @@
                {<<"mountpoint">>, <<"undefined">>}]]).
 
 -define(AUTH, [[{<<"clientid">>, <<"client1">>},
-                {<<"username">>, <<"testuser1">>},
+                {<<"username">>, <<"client1@testuser1">>},
                 {<<"password">>, <<"pass1">>}],
                [{<<"clientid">>, <<"client2">>},
-                {<<"username">>, <<"testuser2">>},
+                {<<"username">>, <<"client2@testuser2">>},
                 {<<"password">>, <<"pass2">>}]]).
 
 %%------------------------------------------------------------------------------

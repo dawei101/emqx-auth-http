@@ -129,9 +129,12 @@ t_check_acl(_) ->
     deny  = emqx_access_control:check_acl(User2, subscribe, <<"$SYS/testuser/1">>).
 
 t_check_auth(_) ->
-    User1 = ?USER(<<"client1">>, <<"testuser1">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2981}, external, undefined),
-    User2 = ?USER(<<"client2">>, <<"testuser2">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2982}, exteneral, undefined),
+    User1 = ?USER(<<"client1">>, <<"client1@testuser1">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2981}, external, undefined),
+    User2 = ?USER(<<"client2">>, <<"client2@testuser2">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2982}, exteneral, undefined),
     User3 = ?USER(<<"client3">>, undefined, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2983}, exteneral, undefined),
+	
+	User4 = ?USER(<<"client4">>, <<"client4@blackappId">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2981}, exteneral, undefined),
+	User5 = ?USER(<<"blackclientId">>, <<"blackclientId@test">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2981}, exteneral, undefined),
 
     {ok, #{auth_result := success,
            anonymous := false,
@@ -142,21 +145,23 @@ t_check_auth(_) ->
     {ok, #{is_superuser := false}} = emqx_access_control:authenticate(User2#{password => <<"pass2">>}),
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<>>}),
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<"errorpwd">>}),
+    {error, 404} = emqx_access_control:authenticate(User3#{password => <<"pwd">>}),
+	{error, 403} = emqx_access_control:authenticate(User4#{password => <<"errorpwd">>}),
+	{error, 403} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}).
 
-    {error, 404} = emqx_access_control:authenticate(User3#{password => <<"pwd">>}).
 
 t_sub_pub(_) ->
     ct:pal("start client"),
     {ok, T1} = emqx_client:start_link([{host, "localhost"},
                                        {client_id, <<"client1">>},
-                                       {username, <<"testuser1">>},
+                                       {username, <<"client1@testuser1">>},
                                        {password, <<"pass1">>}]),
     {ok, _} = emqx_client:connect(T1),
     emqx_client:publish(T1, <<"topic">>, <<"body">>, [{qos, 0}, {retain, true}]),
     timer:sleep(1000),
     {ok, T2} = emqx_client:start_link([{host, "localhost"},
                                        {client_id, <<"client2">>},
-                                       {username, <<"testuser2">>},
+                                       {username, <<"client2@testuser2">>},
                                        {password, <<"pass2">>}]),
     {ok, _} = emqx_client:connect(T2),
     emqx_client:subscribe(T2, <<"topic">>),

@@ -13,7 +13,7 @@
 %% limitations under the License.
 
 -module(emqx_auth_http_cli).
-
+-include_lib("emqx/include/logger.hrl").
 -export([ request/5
         , feedvar/2
         , feedvar/3
@@ -28,7 +28,13 @@ request(get, Url, Params, HttpOpts, RetryOpts) ->
     reply(request_(get, Req, [{autoredirect, true} | HttpOpts], [], RetryOpts));
 
 request(post, Url, Params, HttpOpts, RetryOpts) ->
-    Req = {Url, [], "application/x-www-form-urlencoded", cow_qs:qs(bin_kw(Params))},
+	case is_tuple(Params) of 
+		true ->
+			Req = {Url, [], "application/x-www-form-urlencoded", cow_qs:qs(bin_kw(Params))};
+		false ->
+			Req = {Url, [], "", Params}
+	end,
+    
     reply(request_(post, Req, [{autoredirect, true} | HttpOpts], [], RetryOpts)).
 
 request_(Method, Req, HTTPOpts, Opts, RetryOpts = #{times := Times,
@@ -61,7 +67,7 @@ bin(Int) when is_integer(Int) ->
 bin(Float) when is_float(Float) ->
     float_to_binary(Float, [{decimals, 12}, compact]);
 bin(List) when is_list(List)->
-    list_to_binary(List);
+	list_to_binary(List);  
 bin(Binary) when is_binary(Binary) ->
     Binary.
 
