@@ -146,8 +146,8 @@ t_check_auth(_) ->
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<>>}),
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<"errorpwd">>}),
     {error, 404} = emqx_access_control:authenticate(User3#{password => <<"pwd">>}),
-	{error, 403} = emqx_access_control:authenticate(User4#{password => <<"errorpwd">>}),
-	{error, 403} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}).
+	{stop, #{auth_result:= 403, anonymous:= false}} = emqx_access_control:authenticate(User4#{password => <<"errorpwd">>}),
+	{stop, #{auth_result:= 403, anonymous:= false}} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}).
 
 
 t_sub_pub(_) ->
