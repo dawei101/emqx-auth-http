@@ -69,6 +69,7 @@ https_special_configs(App) ->
 
 set_special_configs(emqx, _Grp) ->
     application:set_env(emqx, allow_anonymous, true),
+	application:set_env(emqx, logger_level, debug),
     application:set_env(emqx, enable_acl_cache, false),
     LoadedPluginPath = filename:join(["test", "emqx_SUITE_data", "loaded_plugins"]),
     application:set_env(emqx, plugins_loaded_file,
@@ -146,8 +147,8 @@ t_check_auth(_) ->
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<>>}),
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<"errorpwd">>}),
     {error, 404} = emqx_access_control:authenticate(User3#{password => <<"pwd">>}),
-	{stop, #{auth_result:= 403, anonymous:= false}} = emqx_access_control:authenticate(User4#{password => <<"errorpwd">>}),
-	{stop, #{auth_result:= 403, anonymous:= false}} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}).
+	{error, 403} = emqx_access_control:authenticate(User4#{password => <<"errorpwd">>}),
+	{error, 403} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}).
 
 
 t_sub_pub(_) ->

@@ -29,7 +29,7 @@ DEPS = case lists:keyfind(deps, 1, CONFIG1) of
 
 UrlPrefix = "https://github.com/emqx/",
 
-EMQX_DEP = {emqx, {git, UrlPrefix ++ "emqx", {branch, BRANCH}}},
+EMQX_DEP = {emqx, {git, UrlPrefix ++ "emqx", {tag, "v3.2.2"}}},
 
 EMQX_MGMT_DEP = {emqx_management, {git, UrlPrefix ++ "emqx-management", {branch, BRANCH}}},
 

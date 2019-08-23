@@ -46,9 +46,9 @@ check(Credentials, #{auth_req := AuthReq,
                                 auth_result => success,
                                 anonymous => false,
                                 mountpoint  => mountpoint(Body, Credentials)}};
-		{ok, 403, Msg} ->
+		{ok, 403, _Msg} ->
             emqx_metrics:inc('auth.http.failure'),
-			?LOG(debug, "block by blacklist Error: ~p", [Msg]),
+			?LOG(error, "block by blacklist Credentials: ~p", [Credentials]),
             {stop, Credentials#{auth_result => 403, anonymous => false}};
         {ok, Code, _Body} ->
             emqx_metrics:inc('auth.http.failure'),
@@ -184,17 +184,14 @@ block_by_blacklist(#http_request{method = Method, url = Url, params = Params,cac
 is_superuser(undefined, _Credetials, _HttpOpts, _RetryOpts) ->
     false;
 is_superuser(#http_request{method = Method, url = Url, params = Params, enable = Enable}, Credetials, HttpOpts, RetryOpts) ->
-    ?LOG(error, "[Auth HTTP] is_superuser enable: ~s", [Enable]),
 	if 
 		Enable =< 0 ->
 			false;
 		true ->
 			case request(Method, Url, feedvar(Params, Credetials), HttpOpts, RetryOpts) of
 		        {ok, 200, _Body}   -> 
-					?LOG(error, "[Auth HTTP] is_superuser: ~s", [_Body]),
 					true;
 		        {ok, _Code, _Body} ->
-					?LOG(error, "[Auth HTTP] is_superuser: ~s code:~s", [_Body,_Code]),
 					false;
 		        {error, Error}     -> ?LOG(error, "[Auth HTTP] is_superuser ~s Error: ~p", [Url, Error]),
 		                              false
