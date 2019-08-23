@@ -46,6 +46,10 @@ check(Credentials, #{auth_req := AuthReq,
                                 auth_result => success,
                                 anonymous => false,
                                 mountpoint  => mountpoint(Body, Credentials)}};
+		{ok, 403, Msg} ->
+            emqx_metrics:inc('auth.http.failure'),
+			?LOG(debug, "block by blacklist Error: ~p", [Msg]),
+            {stop, Credentials#{auth_result => 403, anonymous => false}};
         {ok, Code, _Body} ->
             emqx_metrics:inc('auth.http.failure'),
             {stop, Credentials#{auth_result => Code, anonymous => false}};
@@ -66,7 +70,7 @@ authenticate(#http_request{method = Method, url = Url, params = Params}, ConfigR
 %% 	?LOG(error, "[Auth blacklist] blocked:~s", [Blocked]),
 	case Blocked of
 		true ->
-			{error, 403};
+			{ok, 403, "blocked by black list"};
 		_ -> request(Method, Url, feedvar(Params, Credentials), HttpOpts, RetryOpts)
 	end.
 
@@ -117,7 +121,7 @@ check_blacklist_auth_by_ets(AppId,ClientId,CacheTime)->
 check_blacklist_auth_by_net(AppId,ClientId,Method,Url,Params,HttpOpts,RetryOpts)->
 	case request(Method, Url, Params, HttpOpts, RetryOpts) of
 		{ok, 200, Body}  ->
-			?LOG(error, "respnose ok ~s",[Body]),
+			?LOG(debug, "blacklist respnose ok ~s",[Body]),
 			Result = jsx:decode(list_to_binary(Body)),
 			DataResult = proplists:get_value(<<"data">>, Result),
 			ConfigResult = proplists:get_value(<<"config">>, DataResult),
@@ -127,9 +131,9 @@ check_blacklist_auth_by_net(AppId,ClientId,Method,Url,Params,HttpOpts,RetryOpts)
 			ets:insert(blacklist,{client_id_blacklist,ClientIdBlackList}),
 			ets:insert(blacklist,{last_timestamp,timestamp()}),
 			check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId);
-		{ok, Code, _Body} ->
+		{ok, _Code, _Body} ->
             false;
-        {error, Error} ->
+        {error, _Error} ->
             false
 	end.
 
@@ -164,7 +168,7 @@ check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId)->
 	end.
 
 block_by_blacklist(#http_request{method = Method, url = Url, params = Params,cache_time=CacheTime},
-				   Credentials = #{ username := Username, client_id := ClientId}, HttpOpts, RetryOpts) ->
+				   _Credentials = #{ username := Username, client_id := ClientId}, HttpOpts, RetryOpts) ->
 	AppId = get_app_id(Username),
 %% 	?LOG(error,"appId ~s clientId ~s",[AppId,ClientId]),
 	case check_blacklist_auth_by_ets(AppId,ClientId,CacheTime) of
