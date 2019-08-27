@@ -67,7 +67,6 @@ description() -> "Authentication by HTTP API".
 
 authenticate(#http_request{method = Method, url = Url, params = Params}, ConfigReq, Credentials, HttpOpts, RetryOpts) ->
 	Blocked = block_by_blacklist(ConfigReq,Credentials,HttpOpts,RetryOpts),
-%% 	?LOG(error, "[Auth blacklist] blocked:~s", [Blocked]),
 	case Blocked of
 		true ->
 			{ok, 403, "blocked by black list"};
@@ -103,7 +102,6 @@ lookup_ets(Key)->
 
 check_blacklist_auth_by_ets(AppId,ClientId,CacheTime)->
 	TimesGap = timestamp()-lookup_ets(last_timestamp),
-%% 	?LOG(error, "time gap:~s cacheTime:~s",[TimesGap,CacheTime]),
 	if 
 		TimesGap > CacheTime ->
 			{false,false};
@@ -121,16 +119,23 @@ check_blacklist_auth_by_ets(AppId,ClientId,CacheTime)->
 check_blacklist_auth_by_net(AppId,ClientId,Method,Url,Params,HttpOpts,RetryOpts)->
 	case request(Method, Url, Params, HttpOpts, RetryOpts) of
 		{ok, 200, Body}  ->
-			?LOG(debug, "blacklist respnose ok ~s",[Body]),
+			?LOG(error, "blacklist respnose ok ~s",[Body]),
 			Result = jsx:decode(list_to_binary(Body)),
-			DataResult = proplists:get_value(<<"data">>, Result),
-			ConfigResult = proplists:get_value(<<"config">>, DataResult),
-			AppIdBlackList = proplists:get_value(<<"app_id_blacklist">>,ConfigResult),
-			ClientIdBlackList = proplists:get_value(<<"client_id_blacklist">>,ConfigResult),
-			ets:insert(blacklist,{app_id_blacklist,AppIdBlackList}),
-			ets:insert(blacklist,{client_id_blacklist,ClientIdBlackList}),
-			ets:insert(blacklist,{last_timestamp,timestamp()}),
-			check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId);
+			case proplists:get_value(<<"result">>, Result) of 
+				0 -> 
+					?LOG(error, "blacklist respnose ok deal"),
+					DataResult = proplists:get_value(<<"data">>, Result),
+					ConfigResult = proplists:get_value(<<"config">>, DataResult),
+					AppIdBlackList = proplists:get_value(<<"app_id_blacklist">>,ConfigResult),
+					ClientIdBlackList = proplists:get_value(<<"client_id_blacklist">>,ConfigResult),
+					ets:insert(blacklist,{app_id_blacklist,AppIdBlackList}),
+					ets:insert(blacklist,{client_id_blacklist,ClientIdBlackList}),
+					ets:insert(blacklist,{last_timestamp,timestamp()}),
+					check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId);
+				_Result ->
+					?LOG(error, "blacklist result:~s",[integer_to_list(_Result)]),
+					false
+			end;
 		{ok, _Code, _Body} ->
             false;
         {error, _Error} ->
@@ -141,26 +146,18 @@ check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId)->
 	if 
 		AppIdBlackList == undefined ->
 			Blocked = false;
-%% 			?LOG(error, "appId black list is null");
 		true ->
-%% 			?LOG(error, "appId black list is not null:~s",[AppIdBlackList]),
 			AppIdList = string:tokens(binary:bin_to_list(AppIdBlackList), ";"),
-%% 			?LOG(error, "appId black list:~p",[AppIdList]),
 			Blocked = lists:member(AppId,AppIdList)
 	end,
-%% 	?LOG(error, "appId block result:~s",[Blocked]),
 	if 
 		Blocked == false ->
 			if 
 				ClientIdBlackList == undefined ->
-%% 					?LOG(error, "clientId black list is null");
 					false;
 				true ->
-%% 					?LOG(error, "clientId black list is not null:~s",[ClientIdBlackList]),
 					ClientIdList = string:tokens(binary:bin_to_list(ClientIdBlackList), ";"),
-%% 					?LOG(error, "clientId black list:~p",[ClientIdList]),
 					Blocked1 = lists:member(binary:bin_to_list(ClientId),ClientIdList),
-%% 					?LOG(error, "clientId block result:~s",[Blocked1]),
 					Blocked1
 			end;
 		true ->
@@ -170,10 +167,9 @@ check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId)->
 block_by_blacklist(#http_request{method = Method, url = Url, params = Params,cache_time=CacheTime},
 				   _Credentials = #{ username := Username, client_id := ClientId}, HttpOpts, RetryOpts) ->
 	AppId = get_app_id(Username),
-%% 	?LOG(error,"appId ~s clientId ~s",[AppId,ClientId]),
 	case check_blacklist_auth_by_ets(AppId,ClientId,CacheTime) of
 		{false , _} ->
-			check_blacklist_auth_by_net(AppId,ClientId,Method,Url,Params,HttpOpts,RetryOpts);
+			check_blacklist_auth_by_net(AppId,ClientId,Method,Url,list_to_binary(Params),HttpOpts,RetryOpts);
 		{ok, Result} -> Result
 	end.
 			

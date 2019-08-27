@@ -27,12 +27,12 @@ request(get, Url, Params, HttpOpts, RetryOpts) ->
     Req = {Url ++ "?" ++ cow_qs:qs(bin_kw(Params)), []},
     reply(request_(get, Req, [{autoredirect, true} | HttpOpts], [], RetryOpts));
 
-request(post, Url, Params, HttpOpts, RetryOpts) ->
-	case is_tuple(Params) of 
+request(post, Url, Params, HttpOpts, RetryOpts)  ->
+	case is_binary(Params) of 
 		true ->
-			Req = {Url, [], "application/x-www-form-urlencoded", cow_qs:qs(bin_kw(Params))};
+			Req = {Url, [], "", Params};
 		false ->
-			Req = {Url, [], "", Params}
+			Req = {Url, [], "application/x-www-form-urlencoded", cow_qs:qs(bin_kw(Params))}		
 	end,
     
     reply(request_(post, Req, [{autoredirect, true} | HttpOpts], [], RetryOpts)).
