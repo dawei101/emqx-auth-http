@@ -35,10 +35,14 @@
 
 -define(AUTH, [[{<<"clientid">>, <<"client1">>},
                 {<<"username">>, <<"client1@testuser1">>},
-                {<<"password">>, <<"pass1">>}],
+                {<<"password">>, <<"pass1">>},
+				{<<"clientip">>, <<"127.0.0.1">>}
+				],
                [{<<"clientid">>, <<"client2">>},
                 {<<"username">>, <<"client2@testuser2">>},
-                {<<"password">>, <<"pass2">>}]]).
+                {<<"password">>, <<"pass2">>},
+				{<<"clientip">>, <<"127.0.0.1">>}
+			   ]]).
 
 %%------------------------------------------------------------------------------
 %% REST Interface
@@ -112,10 +116,10 @@ stop_https() ->
 
 -spec check(HttpReqParams :: list(), DefinedConf :: list()) -> allow | deny.
 check(_Params, []) ->
-    %ct:pal("check auth_result: deny~n"),
+%% 	ct:pal("check auth_result: deny~n"),
     deny;
 check(Params, [ConfRecord|T]) ->
-    %ct:pal("Params: ~p, ConfRecord:~p ~n", [Params, ConfRecord]),
+%% 	ct:pal("Params: ~p, ConfRecord:~p ~n", [Params, ConfRecord]),
     case match_config(Params, ConfRecord) of
         not_match ->
             check(Params, T);
@@ -123,11 +127,11 @@ check(Params, [ConfRecord|T]) ->
      end.
 
 match_config([], _ConfigColumn) ->
-    %ct:pal("match_config auth_result: matched~n"),
+%% 	ct:pal("match_config auth_result: matched~n"),
     matched;
 
 match_config([Param|T], ConfigColumn) ->
-    %ct:pal("Param: ~p, ConfigColumn:~p ~n", [Param, ConfigColumn]),
+%% 	ct:pal("Param: ~p, ConfigColumn:~p ~n", [Param, ConfigColumn]),
     case lists:member(Param, ConfigColumn) of
         true ->
             match_config(T, ConfigColumn);

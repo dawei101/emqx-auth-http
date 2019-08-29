@@ -91,6 +91,6 @@ r(Config) ->
     Url    = proplists:get_value(url, Config),
     Params = proplists:get_value(params, Config),
 	CacheTime = proplists:get_value(cache_time, Config),
-	Enable = proplists:get_value(enable, Config),
-    #http_request{method = Method, url = Url, params = Params, cache_time=CacheTime, enable=Enable}.
+	AppIds = proplists:get_value(appids, Config),
+    #http_request{method = Method, url = Url, params = Params, cache_time=CacheTime, appids=AppIds}.
 

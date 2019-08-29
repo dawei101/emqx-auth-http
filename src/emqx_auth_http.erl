@@ -37,7 +37,7 @@ check(Credentials, #{auth_req := AuthReq,
 					 config_req := ConfigReq,
                      http_opts := HttpOpts,
                      retry_opts := RetryOpts}) ->
-    case authenticate(AuthReq,ConfigReq, Credentials, HttpOpts, RetryOpts) of
+    case authenticate(AuthReq, ConfigReq, Credentials, HttpOpts, RetryOpts) of
         {ok, 200, "ignore"} ->
             emqx_metrics:inc('auth.http.ignore'), ok;
         {ok, 200, Body}  ->
@@ -173,26 +173,32 @@ block_by_blacklist(#http_request{method = Method, url = Url, params = Params,cac
 		{ok, Result} -> Result
 	end.
 			
-															
-														
-
 -spec(is_superuser(undefined | #http_request{}, emqx_types:credetials(), list(), list()) -> boolean()).
 is_superuser(undefined, _Credetials, _HttpOpts, _RetryOpts) ->
     false;
-is_superuser(#http_request{method = Method, url = Url, params = Params, enable = Enable}, Credetials, HttpOpts, RetryOpts) ->
-	if 
-		Enable =< 0 ->
+is_superuser(#http_request{method = Method, url = Url, params = Params, appids = AppIds}, Credetials= #{username := Username}, HttpOpts, RetryOpts) ->
+ 	AppId = get_app_id(Username),
+%% 	?LOG(error,"AppIds:~p appId:~p", [AppIds, AppId]),
+	case AppIds of 
+		undefined -> 
 			false;
-		true ->
-			case request(Method, Url, feedvar(Params, Credetials), HttpOpts, RetryOpts) of
-		        {ok, 200, _Body}   -> 
-					true;
-		        {ok, _Code, _Body} ->
-					false;
-		        {error, Error}     -> ?LOG(error, "[Auth HTTP] is_superuser ~s Error: ~p", [Url, Error]),
-		                              false
-		    end
+		_ ->
+			lists:member(AppId, AppIds)
 	end.
+%% 	false.
+%% 	if 
+%% 		Enable =< 0 ->
+%% 			false;
+%% 		true ->
+%% 			case request(Method, Url, feedvar(Params, Credetials), HttpOpts, RetryOpts) of
+%% 		        {ok, 200, _Body}   -> 
+%% 					true;
+%% 		        {ok, _Code, _Body} ->
+%% 					false;
+%% 		        {error, Error}     -> ?LOG(error, "[Auth HTTP] is_superuser ~s Error: ~p", [Url, Error]),
+%% 		                              false
+%% 		    end
+%% 	end.
 
 mountpoint(Body, Credetials) when is_list(Body) ->
     mountpoint(list_to_binary(Body), Credetials);

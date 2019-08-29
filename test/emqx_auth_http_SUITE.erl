@@ -68,7 +68,7 @@ https_special_configs(App) ->
     set_special_configs(App, https).
 
 set_special_configs(emqx, _Grp) ->
-    application:set_env(emqx, allow_anonymous, true),
+    application:set_env(emqx, allow_anonymous, false),
 	application:set_env(emqx, logger_level, debug),
     application:set_env(emqx, enable_acl_cache, false),
     LoadedPluginPath = filename:join(["test", "emqx_SUITE_data", "loaded_plugins"]),
@@ -139,7 +139,7 @@ t_check_auth(_) ->
 
     {ok, #{auth_result := success,
            anonymous := false,
-           is_superuser := false}} = emqx_access_control:authenticate(User1#{password => <<"pass1">>}),
+           is_superuser := true}} = emqx_access_control:authenticate(User1#{password => <<"pass1">>}),
     {error, 404} = emqx_access_control:authenticate(User1#{password => <<"pass">>}),
     {error, 404} = emqx_access_control:authenticate(User1#{password => <<>>}),
 
