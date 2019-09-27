@@ -37,6 +37,10 @@ check(Credentials, #{auth_req := AuthReq,
 					 config_req := ConfigReq,
                      http_opts := HttpOpts,
                      retry_opts := RetryOpts}) ->
+	Now = timestamp(),
+	?LOG(debug, "pid: ~s current: ~s", [os:getpid(), integer_to_list(Now)]),
+	timer:sleep(3000),
+	?LOG(debug, "pid: ~s after current:~s", [os:getpid(), integer_to_list((timestamp()-Now))]),
     case authenticate(AuthReq, ConfigReq, Credentials, HttpOpts, RetryOpts) of
         {ok, 200, "ignore"} ->
             emqx_metrics:inc('auth.http.ignore'), ok;
@@ -95,13 +99,13 @@ timestamp() ->
     M * 1000000 + S.
 
 lookup_ets(Key)->
-	case ets:lookup(blacklist,Key) of
+	case ets:lookup(blacklist, Key) of
 		[] -> 0;
 		Result -> proplists:get_value(Key,Result)
 	end.
 
 check_blacklist_auth_by_ets(AppId,ClientId,CacheTime)->
-	TimesGap = timestamp()-lookup_ets(last_timestamp),
+	TimesGap = timestamp() - lookup_ets(last_timestamp),
 	if 
 		TimesGap > CacheTime ->
 			{false,false};
@@ -112,7 +116,7 @@ check_blacklist_auth_by_ets(AppId,ClientId,CacheTime)->
 				AppIdBlackList == 0 -> {false,false};
 				ClientIdBlackList ==0 -> {false,false};
 				true ->
-					{ok,check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId)}
+					{ok, check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId)}
 			end
 	end.
 
