@@ -38,7 +38,9 @@ start(_StartType, _StartArgs) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init_ets()->
-	ets:new(blacklist,[set,public,named_table]).
+	ets:new(failed_client, [set, public, named_table]),
+	ets:new(blocked_client, [set, public, named_table]),
+	ets:new(blacklist, [set, public, named_table]).
 
 load_auth_hook(AuthReq) ->
     emqx_auth_http:register_metrics(),
@@ -92,5 +94,6 @@ r(Config) ->
     Params = proplists:get_value(params, Config),
 	CacheTime = proplists:get_value(cache_time, Config),
 	AppIds = proplists:get_value(appids, Config),
-    #http_request{method = Method, url = Url, params = Params, cache_time=CacheTime, appids=AppIds}.
+	LimitConfig = proplists:get_value(limit, Config),
+    #http_request{method = Method, url = Url, params = Params, cache_time=CacheTime, appids=AppIds, limit_config=LimitConfig}.
 

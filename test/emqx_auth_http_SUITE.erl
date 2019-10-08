@@ -35,8 +35,9 @@ all() ->
 
 groups() ->
     [{http, [sequence],
-      [ t_check_acl
-      , t_check_auth
+      [ 
+	   %%t_check_acl, 
+	   t_check_auth
       , t_sub_pub
       , t_comment_config]},
      {https, [sequence],
@@ -139,15 +140,25 @@ t_check_auth(_) ->
 
     {ok, #{auth_result := success,
            anonymous := false,
-           is_superuser := true}} = emqx_access_control:authenticate(User1#{password => <<"pass1">>}),
+           is_superuser := false}} = emqx_access_control:authenticate(User1#{password => <<"pass1">>}),
+	timer:sleep(1000),
     {error, 404} = emqx_access_control:authenticate(User1#{password => <<"pass">>}),
+	timer:sleep(1000),
     {error, 404} = emqx_access_control:authenticate(User1#{password => <<>>}),
-
+	timer:sleep(1000),
+	{ok, #{auth_result := success,
+           anonymous := false,
+           is_superuser := false}} = emqx_access_control:authenticate(User1#{password => <<"pass1">>}),
+	timer:sleep(1000),
+	{error, 404} = emqx_access_control:authenticate(User1#{password => <<>>}),
+	timer:sleep(1000),
     {ok, #{is_superuser := false}} = emqx_access_control:authenticate(User2#{password => <<"pass2">>}),
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<>>}),
     {error, 404} = emqx_access_control:authenticate(User2#{password => <<"errorpwd">>}),
     {error, 404} = emqx_access_control:authenticate(User3#{password => <<"pwd">>}),
 	{error, 403} = emqx_access_control:authenticate(User4#{password => <<"errorpwd">>}),
+	{error, 403} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}),
+	{error, 403} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}),
 	{error, 403} = emqx_access_control:authenticate(User5#{password => <<"errorpwd">>}).
 
 

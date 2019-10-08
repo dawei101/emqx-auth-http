@@ -79,10 +79,16 @@ end}.
   {datatype, string}
 ]}.
 
+{mapping, "auth.http.auth_req.limit", "emqx_auth_http.auth_req", [
+  {datatype, string}
+]}.
+
 {translation, "emqx_auth_http.auth_req", fun(Conf) ->
   Params = cuttlefish:conf_get("auth.http.auth_req.params", Conf),
+  Limit = cuttlefish:conf_get("auth.http.auth_req.limit", Conf),
   [{url, cuttlefish:conf_get("auth.http.auth_req", Conf)},
    {method, cuttlefish:conf_get("auth.http.auth_req.method", Conf)},
+   {limit, [list_to_tuple(string:tokens(S, "=")) || S <- string:tokens(Limit, ",")]},
    {params, [list_to_tuple(string:tokens(S, "=")) || S <- string:tokens(Params, ",")]}]
 end}.
 
