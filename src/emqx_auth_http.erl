@@ -37,15 +37,13 @@ check(Credentials, #{auth_req := AuthReq,
 					 config_req := ConfigReq,
                      http_opts := HttpOpts,
                      retry_opts := RetryOpts}) ->
-	Now = timestamp(),
-	?LOG(debug, "[~p] start auth Credentials: ~p", [Now, Credentials]),
+	?LOG(info, "[Auth http] start auth"),
     case authenticate(AuthReq, ConfigReq, Credentials, HttpOpts, RetryOpts) of
         {ok, 200, "ignore"} ->
             emqx_metrics:inc('auth.http.ignore'), ok;
         {ok, 200, Body}  ->
             emqx_metrics:inc('auth.http.success'),
 			process_success_client(Credentials),
-			?LOG(debug, "[~p] success auth Credentials: ~p", [Now, Credentials]),
             {stop, Credentials#{is_superuser => is_superuser(SuperReq, Credentials, HttpOpts, RetryOpts),
                                 auth_result => success,
                                 anonymous => false,
@@ -53,12 +51,12 @@ check(Credentials, #{auth_req := AuthReq,
 		{ok, 403, _Msg} ->
             emqx_metrics:inc('auth.http.failure'),
 			process_failed_client(Credentials, AuthReq),
-			?LOG(debug, "[~p] block by blacklist Credentials: ~p", [Now, Credentials]),
+			?LOG(info, "[Auth http] block by blacklist"),
             {stop, Credentials#{auth_result => 403, anonymous => false}};
         {ok, Code, _Body} ->
             emqx_metrics:inc('auth.http.failure'),
 			process_failed_client(Credentials, AuthReq),
-			?LOG(debug, "[~p] [Auth http] check_auth Code: ~p Credentials:~p", [Now, Code, Credentials]),
+			?LOG(info, "[Auth http] check_auth Code: ~p", [Code]),
             {stop, Credentials#{auth_result => Code, anonymous => false}};
         {error, Error} ->
             ?LOG(error, "[Auth http] check_auth Url: ~p Error: ~p", [AuthReq#http_request.url, Error]),
@@ -86,7 +84,7 @@ process_failed_client(_Credentials = #{client_id := ClientId}, #http_request{lim
 			Now = timestamp(),
 			case lookup_ets(failed_client, ClientId) of
 				0 ->
-					?LOG(debug, "[failed_client] ClientId:~s do not have config!", [ClientId]),
+					?LOG(info, "[Auth http] ClientId:~s do not have config!", [ClientId]),
 					ets:insert(failed_client, {ClientId, {1, Now, Now}});
 				{Times, StartFailedTs, EndFailedTs} ->
 					Gap = Now - StartFailedTs,
@@ -97,29 +95,29 @@ process_failed_client(_Credentials = #{client_id := ClientId}, #http_request{lim
 						Gap =< Time ->
 						   if
 							   Times >= Rate - 1 ->
-								  ?LOG(debug, "[failed_client] hit rate. should add block list:~s", [ClientId]),
+								  ?LOG(warning, "[Auth http] hit rate. should add block list:~s", [ClientId]),
 								  ets:insert(blocked_client, {ClientId, Now}),
 								  timer:sleep(Sleep * 1000);
 							   true ->
 								  ets:insert(failed_client, {ClientId, {Times+1, StartFailedTs, Now}}),
-								  ?LOG(debug, "in gap add times:~s", [integer_to_list(Times+1)])
+								  ?LOG(info, "[Auth http] in gap add times:~s", [integer_to_list(Times+1)])
 						   end;
 					   true ->
-						   ?LOG(debug, "out gap:~s clear time", [ClientId]),
+						   ?LOG(info, "[Auth http] out gap:~s clear time", [ClientId]),
 						   ets:insert(failed_client, {ClientId, {1, Now, Now}})
 					end,
-					?LOG(debug, "[failed_client] Rate:~p Time:~p Sleep:~p", [Rate, Time, Sleep])
+					?LOG(debug, "[Auth http] Rate:~p Time:~p Sleep:~p", [Rate, Time, Sleep])
 			end;
 		LastBlockTs ->
 			Sleep = list_to_integer(proplists:get_value("sleep", LimitConfig)),
 			timer:sleep(Sleep * 1000),
-			?LOG(debug, "[failed_client] in blocked_client:~s sleep:~p", [ClientId, Sleep])
+			?LOG(info, "[Auth http] in blocked_client:~s sleep:~p", [ClientId, Sleep])
 	end.
 
 process_success_client(_Credentials = #{client_id := ClientId})->
 	ets:delete(failed_client, ClientId),
 	ets:delete(blocked_client, ClientId),
-	?LOG(debug, "[failed_client] client:~s connect success!", [ClientId]),
+	?LOG(info, "[Auth http] client:~s connect success!", [ClientId]),
 	ok.
 
 get_app_id(Username)->
@@ -133,7 +131,7 @@ get_app_id(Username)->
 	Position = string:chr(UsernameStr,$@),
 	case Position of
 		0->	
-			?LOG(debug, "[Auth blacklist] username:~s invalid", [Username]),
+			?LOG(debug, "[Auth http] username:~s invalid", [Username]),
 			"";
 		_->
 			lists:nth(2,string:tokens(UsernameStr,"@"))
@@ -168,11 +166,10 @@ check_blacklist_auth_by_ets(AppId, ClientId, CacheTime)->
 check_blacklist_auth_by_net(AppId,ClientId,Method,Url,Params,HttpOpts,RetryOpts)->
 	case request(Method, Url, Params, HttpOpts, RetryOpts) of
 		{ok, 200, Body}  ->
-			?LOG(debug, "blacklist respnose ok ~s",[Body]),
+			?LOG(info, "[Auth http] blacklist respnose ok ~s", [Body]),
 			Result = jsx:decode(list_to_binary(Body)),
 			case proplists:get_value(<<"result">>, Result) of 
 				0 -> 
-					?LOG(debug, "blacklist respnose ok!"),
 					DataResult = proplists:get_value(<<"data">>, Result),
 					ConfigResult = proplists:get_value(<<"config">>, DataResult),
 					AppIdBlackList = proplists:get_value(<<"app_id_blacklist">>,ConfigResult),
@@ -180,9 +177,10 @@ check_blacklist_auth_by_net(AppId,ClientId,Method,Url,Params,HttpOpts,RetryOpts)
 					ets:insert(blacklist, {app_id_blacklist, AppIdBlackList}),
 					ets:insert(blacklist, {client_id_blacklist, ClientIdBlackList}),
 					ets:insert(blacklist, {last_timestamp, timestamp()}),
-					check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId);
+					?LOG(info, "[Auth http] blacklist save to ets success!"),
+					check_blacklist_auth(AppIdBlackList, ClientIdBlackList, AppId, ClientId);
 				_Result ->
-					?LOG(error, "blacklist result:~s",[integer_to_list(_Result)]),
+					?LOG(error, "[Auth http] blacklist result error:~s", [integer_to_list(_Result)]),
 					false
 			end;
 		{ok, _Code, _Body} ->
@@ -191,13 +189,13 @@ check_blacklist_auth_by_net(AppId,ClientId,Method,Url,Params,HttpOpts,RetryOpts)
             false
 	end.
 
-check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId)->
+check_blacklist_auth(AppIdBlackList, ClientIdBlackList, AppId, ClientId)->
 	if 
 		AppIdBlackList == undefined ->
 			Blocked = false;
 		true ->
 			AppIdList = string:tokens(binary:bin_to_list(AppIdBlackList), ";"),
-			Blocked = lists:member(AppId,AppIdList)
+			Blocked = lists:member(AppId, AppIdList)
 	end,
 	if 
 		Blocked == false ->
@@ -206,7 +204,7 @@ check_blacklist_auth(AppIdBlackList,ClientIdBlackList,AppId,ClientId)->
 					false;
 				true ->
 					ClientIdList = string:tokens(binary:bin_to_list(ClientIdBlackList), ";"),
-					Blocked1 = lists:member(binary:bin_to_list(ClientId),ClientIdList),
+					Blocked1 = lists:member(binary:bin_to_list(ClientId), ClientIdList),
 					Blocked1
 			end;
 		true ->
@@ -218,7 +216,7 @@ block_by_blacklist(#http_request{method = Method, url = Url, params = Params, ca
 	AppId = get_app_id(Username),
 	case check_blacklist_auth_by_ets(AppId, ClientId, CacheTime) of
 		{false , _} ->
-			check_blacklist_auth_by_net(AppId,ClientId,Method,Url,list_to_binary(Params),HttpOpts,RetryOpts);
+			check_blacklist_auth_by_net(AppId, ClientId, Method, Url, list_to_binary(Params), HttpOpts, RetryOpts);
 		{ok, Result} -> Result
 	end.
 			
@@ -227,7 +225,6 @@ is_superuser(undefined, _Credetials, _HttpOpts, _RetryOpts) ->
     false;
 is_superuser(#http_request{method = Method, url = Url, params = Params, appids = AppIds}, Credetials= #{username := Username}, HttpOpts, RetryOpts) ->
  	AppId = get_app_id(Username),
-%% 	?LOG(error,"AppIds:~p appId:~p", [AppIds, AppId]),
 	case AppIds of 
 		undefined -> 
 			false;
