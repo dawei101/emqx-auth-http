@@ -40,7 +40,7 @@ start(_StartType, _StartArgs) ->
 init_ets()->
 	ets:new(failed_client, [set, public, named_table]),
 	ets:new(blocked_client, [set, public, named_table]),
-	ets:new(blacklist, [set, public, named_table]).
+	ets:new(auth_config, [set, public, named_table]).
 
 load_auth_hook(AuthReq) ->
     emqx_auth_http:register_metrics(),
