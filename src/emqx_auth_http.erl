@@ -71,7 +71,6 @@ description() -> "Authentication by HTTP API".
 %%--------------------------------------------------------------------
 
 authenticate(#http_request{method = Method, url = Url, params = Params}, ConfigReq, Credentials, HttpOpts, RetryOpts) ->
-	{ok, BlackResult, WhiteResult} = pre_process_by_config(ConfigReq, Credentials, HttpOpts, RetryOpts),
 	case pre_process_by_config(ConfigReq, Credentials, HttpOpts, RetryOpts) of
 		{ok, true, _} ->
 			{ok, 403, "blocked by black list"};
@@ -137,7 +136,7 @@ get_app_id(Username)->
 			?LOG(debug, "[Auth http] username:~s invalid", [Username]),
 			"";
 		_->
-			lists:nth(2,string:tokens(UsernameStr,"@"))
+			lists:nth(2, string:tokens(UsernameStr, "@"))
 	end.
 
 timestamp() ->

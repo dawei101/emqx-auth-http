@@ -38,12 +38,49 @@ register_metrics() ->
 %% ACL callbacks
 %%------------------------------------------------------------------------------
 
-check_acl(Credentials, PubSub, Topic, AclResult, State) ->
-    case do_check_acl(Credentials, PubSub, Topic, AclResult, State) of
-        ok -> emqx_metrics:inc('acl.http.ignore'), ok;
-        {stop, allow} -> emqx_metrics:inc('acl.http.allow'), {stop, allow};
-        {stop, deny} -> emqx_metrics:inc('acl.http.deny'), {stop, deny}
-    end.
+check_acl(_Credentials = #{username := Username, client_id := ClientId}, _PubSub, _Topic, _AclResult, _State) ->
+%% 	?LOG(error, "Credentials:~p PubSub:~p Topic:~p AclResult:~p State:~p",[Credentials, PubSub, Topic, AclResult, State]),
+	case check_roobo_acl(ClientId, Username) of
+		{ok, false} ->
+			emqx_metrics:inc('acl.http.deny'),
+			?LOG(debug, "check acl deny client:~s username:~s", [ClientId, Username]),
+			{stop, deny};
+		{ok, true} ->
+			emqx_metrics:inc('acl.http.allow'),
+			?LOG(debug, "check acl allow client:~s username:~s", [ClientId, Username]),
+			{stop, allow}
+	end.
+%%     case do_check_acl(Credentials, PubSub, Topic, AclResult, State) of
+%%         ok -> emqx_metrics:inc('acl.http.ignore'), ok;
+%%         {stop, allow} -> emqx_metrics:inc('acl.http.allow'), {stop, allow};
+%%         {stop, deny} -> emqx_metrics:inc('acl.http.deny'), {stop, deny}
+%%     end.
+
+check_roobo_acl(ClientId, Username)->
+	if
+		is_binary(Username) ->
+			UsernameStr = binary:bin_to_list(Username);
+		is_list(Username) ->
+			UsernameStr = Username;
+		true ->
+			UsernameStr = ""
+	end,
+
+	if
+		is_binary(ClientId) ->
+			ClientIdStr = binary:bin_to_list(ClientId);
+		is_list(ClientId) ->
+			ClientIdStr = ClientId;
+		true ->
+			ClientIdStr = ""
+	end,
+	case string:chr(UsernameStr, $@) of
+		0 ->
+			?LOG(error, "[Auth http] acl username:~s invalid", [Username]),
+			{ok, false};
+		_ ->
+			{ok, string:equal(lists:nth(1, string:tokens(UsernameStr, "@")), ClientIdStr)}
+	end.
 
 do_check_acl(#{username := <<$$, _/binary>>}, _PubSub, _Topic, _AclResult, _Config) ->
     ok;
