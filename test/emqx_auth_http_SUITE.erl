@@ -110,7 +110,7 @@ set_https_client_opts() ->
 %%------------------------------------------------------------------------------
 
 t_check_acl(_) ->
-    SuperUser = ?USER(<<"superclient">>, <<"superclient@superuser">>, {{127,0,0,1}, 1883}, {{127, 0, 0, 1}, 2982}, external),
+    SuperUser = ?USER(<<"superclient">>, <<"superclient1@superuser">>, {{127,0,0,1}, 1883}, {{127, 0, 0, 1}, 2982}, external),
 
     allow = emqx_access_control:check_acl(SuperUser, subscribe, <<"users/testuser/1">>),
 %%     deny = emqx_access_control:check_acl(SuperUser, publish, <<"anytopic">>),
@@ -119,7 +119,7 @@ t_check_acl(_) ->
     UnIpUser1 = ?USER(<<"client1">>, <<"testuser">>, {{127,0,0,1}, 1883}, {{192,168,0,4}, 2981}, external),
     UnClientIdUser1 = ?USER(<<"unkonwc">>, <<"testuser">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2981}, external),
     UnnameUser1= ?USER(<<"client1">>, <<"unuser">>, {{127,0,0,1}, 1883}, {{127,0,0,1}, 2981}, external),
-    allow = emqx_access_control:check_acl(User1, subscribe, <<"users/testuser/1">>),
+    allow = emqx_access_control:check_acl(User1, subscribe, <<"/{appId}/clients/client1/command">>),
 %%     allow = emqx_access_control:check_acl(User1, publish, <<"users/testuser/1">>),
     deny = emqx_access_control:check_acl(UnIpUser1, subscribe, <<"users/testuser/1">>),
     deny = emqx_access_control:check_acl(UnClientIdUser1, subscribe, <<"users/testuser/1">>),

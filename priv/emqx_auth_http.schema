@@ -135,11 +135,18 @@ end}.
   {datatype, string}
 ]}.
 
+{mapping, "auth.http.acl_req.appids", "emqx_auth_http.acl_req", [
+  {datatype, string}
+]}.
+
 {translation, "emqx_auth_http.acl_req", fun(Conf) ->
   case cuttlefish:conf_get("auth.http.acl_req", Conf, undefined) of
     undefined -> cuttlefish:unset();
-    Url -> Params = cuttlefish:conf_get("auth.http.acl_req.params", Conf),
+    Url ->
+			Params = cuttlefish:conf_get("auth.http.acl_req.params", Conf),
+			AppIds = cuttlefish:conf_get("auth.http.acl_req.appids", Conf),
            [{url, Url}, {method, cuttlefish:conf_get("auth.http.acl_req.method", Conf)},
+           {appids, string:tokens(AppIds, ",")},
             {params, [list_to_tuple(string:tokens(S, "=")) || S <- string:tokens(Params, ",")]}]
   end
 end}.

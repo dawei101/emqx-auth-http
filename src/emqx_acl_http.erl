@@ -38,48 +38,76 @@ register_metrics() ->
 %% ACL callbacks
 %%------------------------------------------------------------------------------
 
-check_acl(_Credentials = #{username := Username, client_id := ClientId}, _PubSub, _Topic, _AclResult, _State) ->
-%% 	?LOG(error, "Credentials:~p PubSub:~p Topic:~p AclResult:~p State:~p",[Credentials, PubSub, Topic, AclResult, State]),
-	case check_roobo_acl(ClientId, Username) of
+check_acl(Credentials = #{username := Username, client_id := ClientId}, PubSub, Topic, AclResult, State = #{acl_req := AclReq}) ->
+	case check_roobo_acl(Credentials, Topic, AclReq) of
+		ok -> emqx_metrics:inc('acl.http.ignore'), ok;
 		{ok, false} ->
-			emqx_metrics:inc('acl.http.deny'),
-			?LOG(debug, "check acl deny client:~s username:~s", [ClientId, Username]),
-			{stop, deny};
+			?LOG(info, "[Auth http] check acl deny client:~s username:~s", [ClientId, Username]),
+			case do_check_acl(Credentials, PubSub, Topic, AclResult, State) of
+				ok -> emqx_metrics:inc('acl.http.ignore'), ok;
+				{stop, allow} -> emqx_metrics:inc('acl.http.allow'), {stop, allow};
+				{stop, deny} -> emqx_metrics:inc('acl.http.deny'), {stop, deny}
+			end;
 		{ok, true} ->
 			emqx_metrics:inc('acl.http.allow'),
-			?LOG(debug, "check acl allow client:~s username:~s", [ClientId, Username]),
+			?LOG(info, "[Auth http] check acl allow client:~s username:~s", [ClientId, Username]),
 			{stop, allow}
 	end.
-%%     case do_check_acl(Credentials, PubSub, Topic, AclResult, State) of
-%%         ok -> emqx_metrics:inc('acl.http.ignore'), ok;
-%%         {stop, allow} -> emqx_metrics:inc('acl.http.allow'), {stop, allow};
-%%         {stop, deny} -> emqx_metrics:inc('acl.http.deny'), {stop, deny}
-%%     end.
 
-check_roobo_acl(ClientId, Username)->
-	if
-		is_binary(Username) ->
-			UsernameStr = binary:bin_to_list(Username);
-		is_list(Username) ->
-			UsernameStr = Username;
-		true ->
-			UsernameStr = ""
-	end,
+check_roobo_acl(#{username := <<$$, _/binary>>}, _Topic, _AclReq) ->
+	ok;
 
-	if
-		is_binary(ClientId) ->
-			ClientIdStr = binary:bin_to_list(ClientId);
-		is_list(ClientId) ->
-			ClientIdStr = ClientId;
-		true ->
-			ClientIdStr = ""
-	end,
+check_roobo_acl(#{username := Username, client_id := ClientId}, Topic, #http_request{appids = AppIds}) ->
+	?LOG(debug, "[Auth http] acl super appIds:~p", [AppIds]),
+	UsernameStr = get_str(Username),
+	ClientIdStr = get_str(ClientId),
 	case string:chr(UsernameStr, $@) of
 		0 ->
-			?LOG(error, "[Auth http] acl username:~s invalid", [Username]),
+			?LOG(info, "[Auth http] acl username:~s invalid", [Username]),
 			{ok, false};
 		_ ->
-			{ok, string:equal(lists:nth(1, string:tokens(UsernameStr, "@")), ClientIdStr)}
+			UserNameArray = string:tokens(UsernameStr, "@"),
+			AppId = lists:nth(2, UserNameArray),
+			case lists:member(AppId, AppIds) of
+				true ->
+					?LOG(info, "[Auth http] acl username:~s is super user", [Username]),
+					{ok, true};
+				_ ->
+					case string:equal(lists:nth(1, UserNameArray), ClientIdStr) of
+						false ->
+							{ok, false};
+						true ->
+							%% check topic
+							case string:equal(get_str(get_clientid_by_topic(Topic)), ClientIdStr) of
+								true ->
+									{ok, true};
+								false ->
+									?LOG(error, "[Auth http] acl topic do not have client:~s", [Topic]),
+									{ok, false}
+							end
+					end
+			end
+	end.
+
+get_clientid_by_topic(Topic) ->
+	S = binary:split(Topic, <<$/>>, [global, trim]),
+	Size = array:size(array:from_list(S)),
+	if
+		Size >= 4 ->
+			lists:nth(4, S);
+		true ->
+			?LOG(error, "get_clientid_by_topic topic size error:~s", [integer_to_list(Size)]),
+			<<"">>
+	end.
+
+get_str(P) ->
+	if
+		is_binary(P) ->
+			binary:bin_to_list(P);
+		is_list(P) ->
+			P;
+		true ->
+			""
 	end.
 
 do_check_acl(#{username := <<$$, _/binary>>}, _PubSub, _Topic, _AclResult, _Config) ->

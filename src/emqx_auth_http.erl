@@ -130,7 +130,7 @@ get_app_id(Username)->
 	   true -> 
 		    UsernameStr = ""
 	end,
-	Position = string:chr(UsernameStr,$@),
+	Position = string:chr(UsernameStr, $@),
 	case Position of
 		0->	
 			?LOG(debug, "[Auth http] username:~s invalid", [Username]),
