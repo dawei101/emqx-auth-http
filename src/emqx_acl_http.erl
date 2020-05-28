@@ -50,7 +50,7 @@ check_acl(Credentials = #{username := Username, client_id := ClientId}, PubSub, 
 			end;
 		{ok, true} ->
 			emqx_metrics:inc('acl.http.allow'),
-			?LOG(info, "[Auth http] check acl allow client:~s username:~s", [ClientId, Username]),
+%% 			?LOG(info, "[Auth http] check acl allow client:~s username:~s", [ClientId, Username]),
 			{stop, allow}
 	end.
 
@@ -82,7 +82,6 @@ check_roobo_acl(#{username := Username, client_id := ClientId}, Topic, #http_req
 								true ->
 									{ok, true};
 								false ->
-									?LOG(error, "[Auth http] acl topic do not have client:~s", [Topic]),
 									{ok, false}
 							end
 					end
@@ -96,7 +95,6 @@ get_clientid_by_topic(Topic) ->
 		Size >= 4 ->
 			lists:nth(4, S);
 		true ->
-			?LOG(error, "get_clientid_by_topic topic size error:~s", [integer_to_list(Size)]),
 			<<"">>
 	end.
 

@@ -37,7 +37,6 @@ check(Credentials, #{auth_req := AuthReq,
 					 config_req := ConfigReq,
                      http_opts := HttpOpts,
                      retry_opts := RetryOpts}) ->
-	?LOG(info, "[Auth http] start auth"),
     case authenticate(AuthReq, ConfigReq, Credentials, HttpOpts, RetryOpts) of
         {ok, 200, "ignore"} ->
             emqx_metrics:inc('auth.http.ignore'), ok;
@@ -51,7 +50,6 @@ check(Credentials, #{auth_req := AuthReq,
 		{ok, 403, _Msg} ->
             emqx_metrics:inc('auth.http.failure'),
 			process_failed_client(Credentials, AuthReq),
-			?LOG(info, "[Auth http] block by blacklist"),
             {stop, Credentials#{auth_result => 403, anonymous => false}};
         {ok, Code, _Body} ->
             emqx_metrics:inc('auth.http.failure'),
@@ -88,7 +86,7 @@ process_failed_client(_Credentials = #{client_id := ClientId}, #http_request{lim
 				0 ->
 					?LOG(info, "[Auth http] ClientId:~s do not have config!", [ClientId]),
 					ets:insert(failed_client, {ClientId, {1, Now, Now}});
-				{Times, StartFailedTs, EndFailedTs} ->
+				{Times, StartFailedTs, _EndFailedTs} ->
 					Gap = Now - StartFailedTs,
 					Rate = list_to_integer(proplists:get_value("rate", LimitConfig)),
 					Time = list_to_integer(proplists:get_value("time", LimitConfig)),
@@ -110,7 +108,7 @@ process_failed_client(_Credentials = #{client_id := ClientId}, #http_request{lim
 					end,
 					?LOG(debug, "[Auth http] Rate:~p Time:~p Sleep:~p", [Rate, Time, Sleep])
 			end;
-		LastBlockTs ->
+		_LastBlockTs ->
 			Sleep = list_to_integer(proplists:get_value("sleep", LimitConfig)),
 			timer:sleep(Sleep * 1000),
 			?LOG(info, "[Auth http] in blocked_client:~s sleep:~p", [ClientId, Sleep])
@@ -133,7 +131,6 @@ get_app_id(Username)->
 	Position = string:chr(UsernameStr, $@),
 	case Position of
 		0->	
-			?LOG(debug, "[Auth http] username:~s invalid", [Username]),
 			"";
 		_->
 			lists:nth(2, string:tokens(UsernameStr, "@"))
@@ -250,7 +247,7 @@ pre_process_by_config(#http_request{method = Method, url = Url, params = Params,
 -spec(is_superuser(undefined | #http_request{}, emqx_types:credetials(), list(), list()) -> boolean()).
 is_superuser(undefined, _Credetials, _HttpOpts, _RetryOpts) ->
     false;
-is_superuser(#http_request{method = Method, url = Url, params = Params, appids = AppIds}, Credetials= #{username := Username}, HttpOpts, RetryOpts) ->
+is_superuser(#http_request{method = _Method, url = _Url, params = _Params, appids = AppIds}, _Credetials= #{username := Username}, _HttpOpts, _RetryOpts) ->
  	AppId = get_app_id(Username),
 	case AppIds of 
 		undefined -> 
